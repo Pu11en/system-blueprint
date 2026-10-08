@@ -1,0 +1,59 @@
+{
+  "title": "Instagram comment-to-DM system — service blueprint",
+  "subtitle": "Example. Read left to right over time; top to bottom from what the follower sees to what is hidden.",
+  "lanes": [
+    {"key": "fan", "label": "FOLLOWER\nwhat they do", "kind": "person",
+     "line_below": {"label": "line of interaction", "style": "dashed"}},
+    {"key": "ig", "label": "INSTAGRAM\nwhat they see", "kind": "frontstage",
+     "line_below": {"label": "line of visibility — below here the follower can't see it", "style": "solid"}},
+    {"key": "auto", "label": "AUTOMATION\nn8n workflow", "kind": "system"},
+    {"key": "ai", "label": "AI AGENT\nwrites replies", "kind": "ai",
+     "line_below": {"label": "line of internal support", "style": "dashed"}},
+    {"key": "data", "label": "SUPPORT\ndata & alerts", "kind": "support"}
+  ],
+  "phases": [
+    {"name": "1. SEES A POST", "time": "any time",
+     "cells": {"fan": "Watches a reel that\nsays 'comment GUIDE'",
+               "ig": "Reel with a clear\ncall to action",
+               "auto": "Scheduler posted it\nat 6 pm",
+               "data": "Content calendar\n(Airtable)"}},
+    {"name": "2. COMMENTS", "time": "seconds",
+     "cells": {"fan": "Comments 'GUIDE'",
+               "ig": "Public reply:\n'Check your DMs!'",
+               "auto": "Webhook gets comment;\nkeyword + duplicate check",
+               "data": "Contacts table:\nhave we DM'd them?"}},
+    {"name": "3. GETS THE DM", "time": "< 1 minute",
+     "cells": {"fan": "Opens the DM,\nasks a question",
+               "ig": "DM with the guide link\n+ 'any questions?'",
+               "auto": "Send DM via\nMessaging API",
+               "ai": "Answers from the\nknowledge base",
+               "data": "Knowledge base\n(FAQ, prices)"}},
+    {"name": "4. QUALIFIED", "time": "minutes",
+     "cells": {"fan": "Says they want\nto buy",
+               "ig": "'Great — a coach will\nmessage you shortly'",
+               "auto": "Tag lead 'hot';\nalert the team",
+               "ai": "Scores intent:\nready to buy?",
+               "data": "CRM deal created;\nSlack alert"}},
+    {"name": "5. HUMAN HAND-OFF", "time": "within 24 h",
+     "cells": {"fan": "Books a call",
+               "ig": "Coach replies in\nthe same chat",
+               "auto": "Pause the bot\nfor this person",
+               "data": "Calendar booking;\nfollow-up reminder"}}
+  ],
+  "handoffs": [
+    {"phase": 1, "from": "fan", "to": "ig", "label": "comment"},
+    {"phase": 1, "from": "ig", "to": "auto", "label": "webhook event"},
+    {"phase": 1, "from": "auto", "to": "data", "label": "look up contact"},
+    {"phase": 2, "from": "auto", "to": "ig", "label": "send DM"},
+    {"phase": 2, "from": "auto", "to": "ai", "label": "question text"},
+    {"phase": 3, "from": "ai", "to": "auto", "label": "score + reply"},
+    {"phase": 3, "from": "auto", "to": "data", "label": "create deal"},
+    {"phase": 4, "from": "auto", "to": "data", "label": "set reminder"}
+  ],
+  "problems": [
+    {"phase": 1, "n": 1, "text": "Duplicate DMs if the same\nperson comments twice"},
+    {"phase": 2, "n": 2, "text": "Rate limits; DMs only allowed\nwithin 24 h of their message"},
+    {"phase": 3, "n": 3, "text": "AI unsure? Needs a clear\n'hand to human' rule"},
+    {"phase": 4, "n": 4, "text": "Bot must stop once a\nhuman takes over"}
+  ]
+}

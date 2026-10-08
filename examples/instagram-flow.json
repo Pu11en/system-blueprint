@@ -1,0 +1,32 @@
+{
+  "title": "One comment, start to finish — every path",
+  "subtitle": "Example. The straight middle line is the normal path; everything that branches off is what happens when something goes wrong.",
+  "main": [
+    {"id": "start", "type": "start", "text": "Follower\ncomments"},
+    {"id": "kw", "type": "decision", "text": "Says\n'GUIDE'?", "next_label": "yes"},
+    {"id": "dupe", "type": "decision", "text": "Already\nDM'd them?", "next_label": "no"},
+    {"id": "send", "type": "step", "text": "Send DM with\nthe guide link"},
+    {"id": "apierr", "type": "decision", "text": "API error or\nrate limit?", "next_label": "no"},
+    {"id": "reply", "type": "decision", "text": "They reply\nin 24 h?", "next_label": "yes"},
+    {"id": "ai", "type": "step", "kind": "ai", "text": "AI answers from\nknowledge base"},
+    {"id": "sure", "type": "decision", "text": "AI confident\nin answer?", "next_label": "yes"},
+    {"id": "hot", "type": "decision", "text": "Ready to\nbuy?", "next_label": "yes"},
+    {"id": "alert", "type": "step", "kind": "support", "text": "CRM deal +\nSlack alert"},
+    {"id": "done", "type": "end", "text": "Human\ntakes over"}
+  ],
+  "branches": [
+    {"from": "kw", "label": "no", "type": "fail", "text": "Ignore\n(no reply)"},
+    {"from": "dupe", "label": "yes", "type": "fail", "text": "Skip — never\nDM twice"},
+    {"from": "apierr", "label": "yes", "id": "retry", "text": "Queue and retry\nin 1 minute", "to": "send"},
+    {"from": "reply", "label": "no", "id": "nurture", "text": "One follow-up,\nthen stop"},
+    {"from": "sure", "label": "no", "id": "handoff", "text": "Hand to a human\nwith the chat", "to": "alert"},
+    {"from": "hot", "label": "no", "id": "tag", "kind": "support", "text": "Tag 'warm' for\nweekly nurture"}
+  ],
+  "interrupts": [
+    {"into": "ai", "text": "Human replies first", "note": "Bot pauses for this person\nso it never talks over them", "label": "pause"}
+  ],
+  "problems": [
+    {"on": "reply", "n": 2},
+    {"on": "sure", "n": 3}
+  ]
+}
