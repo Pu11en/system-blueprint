@@ -43,7 +43,8 @@ a chain is "too linear" and covers only part of the system.
 
 - Include what is not built yet. Plan the future system, not only today's.
 - Few words per box, real names for people and places, colour by who does it.
-- 5 to 9 parts in 3 to 5 rows. More than that: merge parts; never shrink the words.
+- No limit on parts: show everything the system has, and never merge parts to fit a
+  number. Keep the words big; 3 to 5 rows read best.
 - Draw the real system from the first picture. A look tried on a small example tells you
   nothing: one that read fine at 8 boxes failed at 28.
 - Show it beside the chat, give its link, and shape it with the owner until they agree.

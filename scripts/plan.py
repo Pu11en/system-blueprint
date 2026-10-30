@@ -472,14 +472,12 @@ def guesses(spec: dict) -> dict[int, list[str]]:
 
 
 def size_warnings(spec: dict) -> list[str]:
-    """Limits from diagram research: a view people can take in at once."""
+    """Hints from diagram research. No limit on the simple version's parts: merging parts to
+    fit a number hid parts of the system from its owner."""
     out = []
     parts = [p for band in spec["bands"] for p in band["parts"]]
     if len(spec["bands"]) > 5:
         out.append(f"{len(spec['bands'])} rows; keep it to 3 to 5")
-    if len(parts) > 9:
-        out.append(f"{len(parts)} parts in the simple version; keep it to 9 (5 to 7 is best),"
-                   " merge parts rather than shrink text")
     for p in parts:
         if len(p.get("steps", [])) > 7:
             out.append(f"{p['name']!r} has {len(p['steps'])} steps; keep it to 7, split the part")

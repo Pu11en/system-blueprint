@@ -23,8 +23,10 @@ one that worked. Each rule fixed something that made the owner lost.
 
 ## Limits (from diagram research; `plan.py` warns past them)
 
-- Simple version: 5 to 9 parts, 3 to 5 rows. Each opened part: 7 steps at most. Whole
-  picture: about 50 boxes. Over a limit, merge or split parts; never shrink the words.
+- The simple version has no limit on parts (an owner called a Level 1 box limit "dumb"
+  after parts were merged to fit it): show everything, never merge to fit a number. 3 to
+  5 rows read best. Each opened part: about 7 steps; past that, split the part. Past
+  about 50 boxes the whole picture gets hard to follow. Never shrink the words.
 - 5 owner colours at most, far apart, none yellowish or grey (those mean guess and later).
 - No arrows crossing in the simple version; in the full system as few as possible.
 - One look, one meaning: row = whose side, fill = who does it, line style = when it is
