@@ -150,14 +150,16 @@ def build_map(spec: dict) -> Canvas:
         fill, stroke = WHO_PALETTE[n % len(WHO_PALETTE)]
         who[key] = (w.get("fill", fill), w.get("stroke", stroke), w.get("label", key))
 
-    def look(status: str, w: str) -> tuple[str, str, str, str]:
-        """fill, stroke, words, stroke style for a box of this status, done by w."""
+    def look(status: str, w: str, guess: bool = False) -> tuple[str, str, str, str]:
+        """fill, stroke, words, stroke style. One look, one meaning: colour is who does it,
+        line style is when it gets built, yellow is a guess."""
         fill, stroke, _ = who[w]
+        style = {"next": "dashed", "later": "dotted"}.get(status, "solid")
+        if guess:
+            return GUESS[0], GUESS[1], INK, style
         if status == "later":
-            return LATER[0], LATER[1], LATER[1], "dotted"
-        if status == "guess":
-            return GUESS[0], GUESS[1], INK, "solid"
-        return fill, stroke, INK, "dashed" if status == "next" else "solid"
+            return LATER[0], LATER[1], LATER[1], style
+        return fill, stroke, INK, style
 
     def box(eid, x, y, w, h, text, fs, fill, stroke, color, style, align="center",
             valign="middle", pad=12):
@@ -182,6 +184,9 @@ def build_map(spec: dict) -> Canvas:
     # Header and key: the key says what every look means, so nothing needs explaining.
     cv.text("title", 40, 24, spec["title"], 30, TITLE)
     y = 70
+    if spec.get("goal"):  # what the system is for, in the owner's words
+        t = cv.text("goal", 40, y, wrap("Goal: " + spec["goal"], 20, W - 80), 20, INK)
+        y += t["height"] + 14
     if spec.get("subtitle"):
         cv.text("subtitle", 40, y, spec["subtitle"], 16, BODY)
         y += 34
@@ -197,6 +202,9 @@ def build_map(spec: dict) -> Canvas:
     y += 26
     cv.text("key_guess", 40, y, "Yellow: a guess. Its number is the question that settles it.",
             16, BODY)
+    if any(it.get("changed") for it in items(spec)):
+        y += 26
+        cv.text("key_changed", 40, y, "Thick outline: changed since last time.", 16, BODY)
     y += 60
 
     def level(prefix: str, heading: str, y: float, full: bool, width: float) -> float:
@@ -238,22 +246,27 @@ def build_map(spec: dict) -> Canvas:
             for n, (p, pw, name, sub, head, steps, h) in enumerate(plans):
                 pid = prefix + p["id"]
                 status = p.get("status", "built")
-                fill, stroke, color, style = look(status, p["who"])
+                fill, stroke, color, style = look(status, p["who"], "guess" in p)
                 if full and steps:
-                    fill = "#ffffff" if status not in ("later", "guess") else fill
+                    fill = "#ffffff" if status != "later" and "guess" not in p else fill
                 label = name + (f"\n{sub}" if sub else "")
                 e = box(pid, x, top + 40, pw, bh, label, 20 if not sub else 18, fill, stroke,
                         color, style, align="left" if full and steps else "center",
                         valign="top" if full and steps else "middle")
-                if status == "guess":
+                if p.get("changed"):
+                    e["strokeWidth"] = 4
+                if "guess" in p:
                     badge(f"{pid}_q", pid, p["guess"])
                 sy = top + 40 + head
                 prev = None
                 for k, (st, txt, sh) in enumerate(steps):
                     sid = f"{pid}_s{k}"
-                    sf, ss, sc, sst = look(st.get("status", status), st.get("who", p["who"]))
-                    box(sid, x + 24, sy, pw - 48, sh, txt, 16, sf, ss, sc, sst)
-                    if st.get("status") == "guess":
+                    sf, ss, sc, sst = look(st.get("status", status), st.get("who", p["who"]),
+                                           "guess" in st)
+                    se = box(sid, x + 24, sy, pw - 48, sh, txt, 16, sf, ss, sc, sst)
+                    if st.get("changed"):
+                        se["strokeWidth"] = 4
+                    if "guess" in st:
                         badge(f"{sid}_q", sid, st["guess"])
                     if prev:
                         cv.arrow(f"{sid}_in", prev, sid, "bt", color=BODY)
@@ -306,6 +319,8 @@ def build_map(spec: dict) -> Canvas:
                       "startBinding": {"elementId": prefix + ln["from"], "focus": 0, "gap": 4},
                       "endBinding": {"elementId": prefix + ln["to"], "focus": 0, "gap": 4},
                       "startArrowhead": None, "endArrowhead": "arrow", "roundness": None})
+            if ln.get("changed"):
+                e["strokeWidth"] = 4
             for pid in (ln["from"], ln["to"]):
                 parts[pid]["boundElements"] = (parts[pid]["boundElements"] or []) + [
                     {"id": aid, "type": "arrow"}]
@@ -399,6 +414,25 @@ def check(els: list[dict]) -> list[str]:
         for b in boxes:
             if hit(t, b):
                 out.append(f"label {t['id']} sits on {b['id']}")
+    # arrows crossing each other: the layout fault that hurts reading most
+    segs = []
+    for e in els:
+        if e["type"] == "arrow" and "link" in e["id"]:
+            pts = [(e["x"] + px, e["y"] + py) for px, py in e["points"]]
+            segs.append((e["id"], list(zip(pts, pts[1:]))))
+
+    def side(a, b, c):
+        v = (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])
+        return 0 if abs(v) < 1e-9 else (1 if v > 0 else -1)
+
+    def cross(p1, p2, p3, p4):
+        return (side(p1, p2, p3) * side(p1, p2, p4) < 0
+                and side(p3, p4, p1) * side(p3, p4, p2) < 0)
+
+    for i, (ia, sa) in enumerate(segs):
+        for ib, sb in segs[i + 1:]:
+            if any(cross(p, q, r, t) for p, q in sa for r, t in sb):
+                out.append(f"arrows cross: {ia} and {ib}")
     return out
 
 
@@ -411,17 +445,50 @@ def colours(spec: dict) -> dict[str, tuple[str, str, str]]:
     return out
 
 
+def items(spec: dict):
+    """Every part, step and link in the plan."""
+    for band in spec["bands"]:
+        for p in band["parts"]:
+            yield p
+            yield from p.get("steps", [])
+    yield from spec.get("links", [])
+
+
+def normalise(spec: dict) -> None:
+    """Older plans wrote status "guess"; a guess is now its own field, so it can also be
+    built, next or later."""
+    for it in items(spec):
+        if it.get("status") == "guess":
+            del it["status"]
+
+
 def guesses(spec: dict) -> dict[int, list[str]]:
     """Question number -> the boxes it settles."""
     out: dict[int, list[str]] = {}
-    for band in spec["bands"]:
-        for p in band["parts"]:
-            if p.get("status") == "guess":
-                out.setdefault(p["guess"], []).append(p["name"])
-            for st in p.get("steps", []):
-                if st.get("status") == "guess":
-                    out.setdefault(st["guess"], []).append(st["text"])
+    for it in items(spec):
+        if "guess" in it and "from" not in it:
+            out.setdefault(it["guess"], []).append(it.get("name") or it.get("text"))
     return dict(sorted(out.items()))
+
+
+def size_warnings(spec: dict) -> list[str]:
+    """Limits from diagram research: a view people can take in at once."""
+    out = []
+    parts = [p for band in spec["bands"] for p in band["parts"]]
+    if len(spec["bands"]) > 5:
+        out.append(f"{len(spec['bands'])} rows; keep it to 3 to 5")
+    if len(parts) > 9:
+        out.append(f"{len(parts)} parts in the simple version; keep it to 9 (5 to 7 is best),"
+                   " merge parts rather than shrink text")
+    for p in parts:
+        if len(p.get("steps", [])) > 7:
+            out.append(f"{p['name']!r} has {len(p['steps'])} steps; keep it to 7, split the part")
+    boxes = len(parts) + sum(len(p.get("steps", [])) for p in parts)
+    if boxes > 50:
+        out.append(f"{boxes} boxes in the full system; about 50 is the most people follow")
+    if len(spec.get("who", {})) > 5:
+        out.append(f"{len(spec['who'])} owner colours; keep it to 5")
+    return out
 
 
 CIRCLED = "①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳"
@@ -435,7 +502,7 @@ def mermaid(spec: dict) -> str:
     who = colours(spec)
 
     def label(text: str, item: dict) -> str:
-        if item.get("status") == "guess":
+        if "guess" in item:
             n = item["guess"]
             text = f"{CIRCLED[n - 1] if n <= len(CIRCLED) else n} {text}"
         return '"' + text.replace('"', "#quot;").replace("\n", "<br/>") + '"'
@@ -444,12 +511,13 @@ def mermaid(spec: dict) -> str:
         status = item.get("status", "built")
         fill, stroke, _ = who[item["who"]]
         color = INK
-        if status == "later":
-            fill, stroke, color = LATER[0], LATER[1], LATER[1]
-        elif status == "guess":
+        if "guess" in item:
             fill, stroke = GUESS
+        elif status == "later":
+            fill, stroke, color = LATER[0], LATER[1], LATER[1]
         dash = {"next": ",stroke-dasharray:6 4", "later": ",stroke-dasharray:2 3"}.get(status, "")
-        return f"fill:{fill},stroke:{stroke},color:{color},stroke-width:2px{dash}"
+        width = 4 if item.get("changed") else 2
+        return f"fill:{fill},stroke:{stroke},color:{color},stroke-width:{width}px{dash}"
 
     lines, styles = ["flowchart TD"], []
     for bi, band in enumerate(spec["bands"]):
@@ -468,8 +536,11 @@ def mermaid(spec: dict) -> str:
         status = ln.get("status", "built")
         text = f'|"{ln["label"]}"|' if ln.get("label") else ""
         lines.append(f"  {ln['from']} {'-->' if status == 'built' else '-.->'}{text} {ln['to']}")
-        if status == "later":
-            styles.append(f"  linkStyle {hops} stroke:{LATER[1]},color:{LATER[1]}")
+        css = [f"stroke:{LATER[1]},color:{LATER[1]}"] if status == "later" else []
+        if ln.get("changed"):
+            css.append("stroke-width:4px")
+        if css:
+            styles.append(f"  linkStyle {hops} {','.join(css)}")
         hops += 1
     return "\n".join(lines + styles)
 
@@ -478,6 +549,8 @@ def markdown(spec: dict, drawing: str) -> str:
     """The simple version for a chat or a board, the questions, and where the full system is."""
     who = colours(spec)
     parts = [f"# {spec['title']}", ""]
+    if spec.get("goal"):
+        parts += [f"Goal: {spec['goal']}", ""]
     parts += ["Colour = who does it: " + ", ".join(v[2] for v in who.values()) + ". "
               "Solid: built and working. Dashed: the next build. Grey: later, not in this build. "
               "Yellow with a number: a guess; the number is the question that settles it.", ""]
@@ -497,6 +570,9 @@ def main() -> None:
         sys.exit(__doc__)
     spec_path = Path(sys.argv[1])
     spec = json.loads(spec_path.read_text())
+    normalise(spec)
+    for warning in size_warnings(spec):
+        print("size:", warning)
     found = guesses(spec)
     if found and list(found) != list(range(1, len(found) + 1)):
         print(f"warning: guess numbers should run 1..{len(found)}, got {list(found)}")

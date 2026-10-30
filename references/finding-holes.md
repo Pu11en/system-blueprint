@@ -14,6 +14,8 @@ hole left becomes a numbered guess on the picture or a question in chat.
 - "I don't know": propose a sensible default, mark it as a guess, keep going. "I don't get
   it": explain with a concrete example, then ask again.
 - After each answer: update the plan, rebuild the picture, then ask the next question.
+- Order: the question that changes the most of the picture, or would break the system if
+  wrong, comes first. Don't number what you can decide yourself (see SKILL.md).
 
 ## Every step
 
@@ -65,6 +67,11 @@ what happens next, and whether the owner is in the loop.
 Work out your own answers first from everything you have. Never ask how they run their own
 tools. Keep only what would break the system without their answer, word it so it does not
 sound risky, and list it beside the simple version.
+
+## When to stop asking
+
+Stop when what is left is cheaper to settle while building than in planning, and say so. A
+guess nobody can answer becomes a small "try it and see" step in the build plan.
 
 ## Done
 

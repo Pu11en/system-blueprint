@@ -21,6 +21,22 @@ one that worked. Each rule fixed something that made the owner lost.
 - **Questions only someone else can answer**, in big text (22 to 24 px) beside the simple
   version, as long as the picture still opens near full size.
 
+## Limits (from diagram research; `plan.py` warns past them)
+
+- Simple version: 5 to 9 parts, 3 to 5 rows. Each opened part: 7 steps at most. Whole
+  picture: about 50 boxes. Over a limit, merge or split parts; never shrink the words.
+- 5 owner colours at most, far apart, none yellowish or grey (those mean guess and later).
+- No arrows crossing in the simple version; in the full system as few as possible.
+- One look, one meaning: row = whose side, fill = who does it, line style = when it is
+  built, yellow with a number = a guess, thick outline = changed since last time.
+- One direction per kind of movement: steps go down inside a part, hand-offs go between
+  parts. Spacing groups things: the gap between parts is at least twice the gap between
+  steps; rows are pale bands, the content is dark.
+
+Sources: Moody, "The Physics of Notations" (2009); Cowan on working memory (about 4
+chunks); Purchase on edge crossings; Mendling et al., "Seven Process Modeling Guidelines";
+Simons and Rensink on change blindness (mark what changed, or people miss it).
+
 ## What made the owner lost
 
 - Many separate pages or pictures (a page per flow, per level, per question).
@@ -35,6 +51,8 @@ one that worked. Each rule fixed something that made the owner lost.
   small change instead; keep everything else.
 - Problems and to-do lists drawn in the same boxes as the system. They go in chat.
 - The agent choosing a look without showing the owner early.
+- Looks tried on a small example: fine at 8 boxes, lost at 28.
+- A layout redrawn from scratch between rounds, so nothing was where it had been.
 
 ## Words on the picture
 

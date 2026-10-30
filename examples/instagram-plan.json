@@ -1,6 +1,7 @@
 {
   "title": "Instagram comment-to-DM system",
   "subtitle": "Example. Read top to bottom: the simple version first, then the full system.",
+  "goal": "every follower who comments GUIDE gets the guide by DM within a minute; hot leads reach the coach the same day",
   "who": {
     "coach": {"label": "Coach"},
     "system": {"label": "Coach's system"},
@@ -12,7 +13,7 @@
       {"id": "coach", "name": "Coach", "who": "coach", "sub": "takes over hot leads",
        "steps": [
          {"text": "Gets a Slack alert for each hot lead"},
-         {"text": "Replies in the same chat", "status": "guess", "guess": 1},
+         {"text": "Replies in the same chat", "guess": 1},
          {"text": "Books the call"}]}
     ]},
     {"name": "Coach's system, always on", "parts": [
@@ -21,11 +22,11 @@
          {"text": "Gets each new comment"},
          {"text": "Keyword GUIDE, not DM'd before?"},
          {"text": "Sends the guide by DM"},
-         {"text": "Pauses for this person once the coach replies", "status": "guess", "guess": 1}]},
+         {"text": "Pauses for this person once the coach replies", "guess": 1}]},
       {"id": "ai", "name": "AI agent", "who": "system", "sub": "answers DMs", "status": "next",
        "steps": [
          {"text": "Answers from the knowledge base", "status": "next"},
-         {"text": "Hot lead when they ask to buy", "status": "guess", "guess": 2},
+         {"text": "Hot lead when they ask to buy", "guess": 2},
          {"text": "Weekly report to the coach", "status": "later"}]}
     ]},
     {"name": "Stores", "parts": [

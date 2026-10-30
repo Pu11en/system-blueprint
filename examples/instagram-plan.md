@@ -1,5 +1,7 @@
 # Instagram comment-to-DM system
 
+Goal: every follower who comments GUIDE gets the guide by DM within a minute; hot leads reach the coach the same day
+
 Colour = who does it: Coach, Coach's system, Stores, Instagram and followers. Solid: built and working. Dashed: the next build. Grey: later, not in this build. Yellow with a number: a guess; the number is the question that settles it.
 
 ## The simple version
