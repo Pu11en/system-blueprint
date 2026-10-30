@@ -7,7 +7,10 @@ designers do.
 1. **Interview**: one question at a time, multiple choice with a recommendation, using a
    fixed step checklist: trigger, input, action, tool, output, failure, human hand-off.
    Answers go into a design log after every reply, with numbered open questions.
-2. **Draw**: Excalidraw diagrams in two professional styles:
+2. **Draw**: Excalidraw diagrams:
+   - a **system map**, read top to bottom: the simple version, then the full system with
+     every part's steps; built, next build and later look different, and guesses are
+     yellow with the number of the question that settles them;
    - a **service blueprint** of the whole system: stages over time, from what people see
      down to what is hidden;
    - **BPMN-style flows**: the normal path in a straight line, with every failure, retry and
@@ -15,11 +18,14 @@ designers do.
 
 ## Example: Instagram comment-to-DM system
 
+![System map: the simple version, then the full system](examples/instagram-map.png)
+
 ![Service blueprint](examples/instagram-blueprint.png)
 
 ![Flow with every failure path](examples/instagram-flow.png)
 
-Specs: [`examples/instagram-blueprint.json`](examples/instagram-blueprint.json),
+Specs: [`examples/instagram-map.json`](examples/instagram-map.json),
+[`examples/instagram-blueprint.json`](examples/instagram-blueprint.json),
 [`examples/instagram-flow.json`](examples/instagram-flow.json). Open the `.excalidraw`
 files at [excalidraw.com](https://excalidraw.com) to edit them.
 
@@ -39,6 +45,7 @@ For PNG rendering: [uv](https://docs.astral.sh/uv/), then once:
 ## Use the scripts directly
 
 ```bash
+python3 scripts/diagram.py map examples/instagram-map.json
 python3 scripts/diagram.py blueprint examples/instagram-blueprint.json
 python3 scripts/diagram.py flow examples/instagram-flow.json
 uv run scripts/render.py examples/instagram-flow.excalidraw
@@ -51,7 +58,9 @@ Diagram conventions come from the [C4 model](https://c4model.com) (Simon Brown),
 (Nielsen Norman Group) and [BPMN](https://www.omg.org/bpmn/). Rendering uses
 [Excalidraw](https://github.com/excalidraw/excalidraw). Inspired by the
 [excalidraw-diagram-skill](https://github.com/coleam00/excalidraw-diagram-skill) and the
-"grill me" interview skills.
+"grill me" interview skills. The map and
+[the method behind it](references/map-method.md) come from planning a real system with its
+non-technical owner.
 
 ## License
 

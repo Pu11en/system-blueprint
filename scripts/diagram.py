@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 """Build .excalidraw diagrams from a JSON spec.
 
+    python diagram.py map spec.json [out.excalidraw]
     python diagram.py blueprint spec.json [out.excalidraw]
     python diagram.py flow spec.json [out.excalidraw]
 
+map: the whole system as one drawing read top to bottom: the simple version (every part,
+  placed by who owns it), then the full system (the same map with each part's steps).
 blueprint: a service blueprint (phases over time x lanes from visible to hidden).
 flow: a BPMN-style flow (straight normal path, failure branches below, interrupts above).
 See references/spec-format.md for the JSON fields. Standard library only.
@@ -307,13 +310,312 @@ def build_flow(spec: dict) -> Canvas:
     return cv
 
 
+# ---- map ---------------------------------------------------------------------------------
+# Tested over two days of planning a real two-person system with its non-technical owner.
+# What worked: one drawing, top to bottom; every part placed by who owns it; the simple
+# version first, the full system under it; built / next build / later visibly different;
+# guesses yellow with the number of the question that settles them. See map-method.md.
+
+WHO_PALETTE = [("#dbeafe", "#2563eb"), ("#ddd6fe", "#6d28d9"), ("#dcfce7", "#16a34a"),
+               ("#fed7aa", "#c2410c"), ("#e2e8f0", "#475569"), ("#fce7f3", "#be185d")]
+LATER = ("#f1f5f9", "#94a3b8")  # fill, line and words: not in this build
+GUESS = ("#fef9c3", "#ca8a04")  # a guess, settled by the numbered question
+INK = "#1e1e1e"
+CW = 0.6  # Cascadia Code: every character is 0.6 em wide
+
+
+def wrap(text: str, fs: int, width: float) -> str:
+    """Break words into lines that fit width; existing line breaks are kept."""
+    out = []
+    for para in text.split("\n"):
+        line = ""
+        for word in para.split():
+            trial = f"{line} {word}".strip()
+            if line and len(trial) * fs * CW > width:
+                out.append(line)
+                line = word
+            else:
+                line = trial
+        out.append(line)
+    return "\n".join(out)
+
+
+def build_map(spec: dict) -> Canvas:
+    cv = Canvas()
+    W = spec.get("width", 1160)
+    who = {}
+    for n, (key, w) in enumerate(spec.get("who", {}).items()):
+        fill, stroke = WHO_PALETTE[n % len(WHO_PALETTE)]
+        who[key] = (w.get("fill", fill), w.get("stroke", stroke), w.get("label", key))
+    guesses: dict[int, list[str]] = {}
+
+    def look(status: str, w: str) -> tuple[str, str, str, str]:
+        """fill, stroke, words, stroke style for a box of this status, done by w."""
+        fill, stroke, _ = who[w]
+        if status == "later":
+            return LATER[0], LATER[1], LATER[1], "dotted"
+        if status == "guess":
+            return GUESS[0], GUESS[1], INK, "solid"
+        return fill, stroke, INK, "dashed" if status == "next" else "solid"
+
+    def box(eid, x, y, w, h, text, fs, fill, stroke, color, style, align="center",
+            valign="middle", pad=12):
+        e = cv._base("rectangle", eid, x, y, w, h)
+        e.update({"strokeColor": stroke, "backgroundColor": fill, "strokeStyle": style,
+                  "roundness": {"type": 3}})
+        if text:
+            tw, th = cv.size(text, fs)
+            tx = x + (w - tw) / 2 if align == "center" else x + pad
+            ty = y + (h - th) / 2 if valign == "middle" else y + pad
+            t = cv.text(f"{eid}_t", tx, ty, text, fs, color, eid, align)
+            t["verticalAlign"] = valign
+            e["boundElements"] = [{"id": f"{eid}_t", "type": "text"}]
+        return e
+
+    def badge(eid, owner, n):
+        e = cv.by_id[owner]
+        cv.shape(eid, e["x"] + e["width"] - 30, e["y"] - 12, 34, 34, str(n), "decision",
+                 "ellipse", fs=16)
+        cv.by_id[eid].update({"backgroundColor": "#f59e0b", "strokeColor": GUESS[1]})
+
+    # Header and key: the key says what every look means, so nothing needs explaining.
+    cv.text("title", 40, 24, spec["title"], 30, TITLE)
+    y = 70
+    if spec.get("subtitle"):
+        cv.text("subtitle", 40, y, spec["subtitle"], 16, BODY)
+        y += 34
+    kx = 40
+    for k, (fill, stroke, label) in who.items():
+        cv._base("rectangle", f"key_{k}", kx, y, 26, 22).update(
+            {"strokeColor": stroke, "backgroundColor": fill, "roundness": {"type": 3}})
+        t = cv.text(f"key_{k}_t", kx + 34, y + 1, label, 16, INK)
+        kx += 34 + t["width"] + 30
+    y += 34
+    cv.text("key_status", 40, y, "Solid: built and working.  Dashed: the next build.  "
+            "Grey: later, not in this build.", 16, BODY)
+    y += 26
+    cv.text("key_guess", 40, y, "Yellow: a guess. Its number is the question that settles it.",
+            16, BODY)
+    y += 60
+
+    def level(prefix: str, heading: str, y: float, full: bool, width: float) -> float:
+        cv.text(f"{prefix}head", 40, y, heading, 24, TITLE)
+        y += 50
+        parts: dict[str, dict] = {}
+        band_of: dict[str, int] = {}
+        for bi, band in enumerate(spec["bands"]):
+            top = y
+            ps = band["parts"]
+            # Neighbours with an arrow between them get room for its label.
+            gaps = []
+            for left, right in zip(ps, ps[1:]):
+                words = [ln.get("label", "") for ln in spec.get("links", [])
+                         if {ln["from"], ln["to"]} == {left["id"], right["id"]}]
+                gaps.append(max([40] + [cv.size(w, 16)[0] + 50 for w in words]))
+            total = sum(p.get("weight", 1) for p in ps)
+            free = width - 40 - sum(gaps)
+            # Heights first: every part in a band is as tall as the tallest.
+            plans = []
+            for p in ps:
+                pw = free * p.get("weight", 1) / total
+                name = wrap(p["name"], 20, pw - 24)
+                sub = wrap(p.get("sub", ""), 16, pw - 24) if p.get("sub") else ""
+                head = cv.size(name, 20)[1] + (cv.size(sub, 16)[1] + 4 if sub else 0) + 24
+                steps = []
+                if full:
+                    for st in p.get("steps", []):
+                        txt = wrap(st["text"], 16, pw - 48)
+                        steps.append((st, txt, cv.size(txt, 16)[1] + 20))
+                h = head + sum(sh + 28 for _, _, sh in steps) + (8 if steps else 0)
+                plans.append((p, pw, name, sub, head, steps, h))
+            bh = max(pl[-1] for pl in plans)
+            band_box = cv._base("rectangle", f"{prefix}band{bi}", 20, top, width, bh + 56)
+            band_box.update({"strokeColor": "#e2e8f0", "backgroundColor": "#f8fafc",
+                             "strokeWidth": 1})
+            cv.text(f"{prefix}band{bi}_t", 36, top + 8, band["name"], 16, SUB)
+            x = 40
+            for n, (p, pw, name, sub, head, steps, h) in enumerate(plans):
+                pid = prefix + p["id"]
+                status = p.get("status", "built")
+                fill, stroke, color, style = look(status, p["who"])
+                if full and steps:
+                    fill = "#ffffff" if status not in ("later", "guess") else fill
+                label = name + (f"\n{sub}" if sub else "")
+                e = box(pid, x, top + 40, pw, bh, label, 20 if not sub else 18, fill, stroke,
+                        color, style, align="left" if full and steps else "center",
+                        valign="top" if full and steps else "middle")
+                if status == "guess":
+                    guesses.setdefault(p["guess"], []).append(p["name"])
+                    badge(f"{pid}_q", pid, p["guess"])
+                sy = top + 40 + head
+                prev = None
+                for k, (st, txt, sh) in enumerate(steps):
+                    sid = f"{pid}_s{k}"
+                    sf, ss, sc, sst = look(st.get("status", status), st.get("who", p["who"]))
+                    box(sid, x + 24, sy, pw - 48, sh, txt, 16, sf, ss, sc, sst)
+                    if st.get("status") == "guess":
+                        guesses.setdefault(st["guess"], []).append(st["text"])
+                        badge(f"{sid}_q", sid, st["guess"])
+                    if prev:
+                        cv.arrow(f"{sid}_in", prev, sid, "bt", color=BODY)
+                    prev, sy = sid, sy + sh + 28
+                parts[p["id"]] = e
+                band_of[p["id"]] = bi
+                x += pw + (gaps[n] if n < len(gaps) else 0)
+            y = top + bh + 56 + 70  # the gap holds the arrow labels
+
+        # Links between parts: down (or up) through the gap above the receiving band.
+        ends: dict[tuple[str, str], list[int]] = {}
+        links = spec.get("links", [])
+        for n, ln in enumerate(links):
+            a, b = band_of[ln["from"]], band_of[ln["to"]]
+            sa, sb = ("b", "t") if a < b else ("t", "b") if a > b else ("r", "l")
+            ends.setdefault((ln["from"], sa), []).append(n)
+            ends.setdefault((ln["to"], sb), []).append(n)
+
+        def spot(pid: str, side: str, n: int) -> tuple[float, float]:
+            e, group = parts[pid], ends[(pid, side)]
+            # spread several arrows along one side, ordered by where they go
+            f = (group.index(n) + 1) / (len(group) + 1)
+            if side in "tb":
+                return e["x"] + e["width"] * f, e["y"] + (e["height"] if side == "b" else 0)
+            return e["x"] + (e["width"] if side == "r" else 0), e["y"] + e["height"] * f
+
+        for (pid, side), group in ends.items():  # order by the other end's position
+            def other_x(n, pid=pid):
+                ln = links[n]
+                o = parts[ln["to"] if ln["from"] == pid else ln["from"]]
+                return o["x"] + o["width"] / 2
+            group.sort(key=other_x)
+
+        for n, ln in enumerate(links):
+            a, b = band_of[ln["from"]], band_of[ln["to"]]
+            sa, sb = ("b", "t") if a < b else ("t", "b") if a > b else ("r", "l")
+            (x1, y1), (x2, y2) = spot(ln["from"], sa, n), spot(ln["to"], sb, n)
+            if sa == "r" or abs(x1 - x2) < 2:
+                pts = [(x1, y1), (x2, y2)]
+            else:  # elbow in the gap next to the receiving band
+                tgt = parts[ln["to"]]
+                my = tgt["y"] - 60 if a < b else tgt["y"] + tgt["height"] + 46
+                pts = [(x1, y1), (x1, my), (x2, my), (x2, y2)]
+            status = ln.get("status", "built")
+            color = LATER[1] if status == "later" else NAVY
+            aid = f"{prefix}link{n}"
+            e = cv._base("arrow", aid, x1, y1, abs(x2 - x1), abs(y2 - y1))
+            e.update({"strokeColor": color, "points": [[px - x1, py - y1] for px, py in pts],
+                      "strokeStyle": {"next": "dashed", "later": "dotted"}.get(status, "solid"),
+                      "startBinding": {"elementId": prefix + ln["from"], "focus": 0, "gap": 4},
+                      "endBinding": {"elementId": prefix + ln["to"], "focus": 0, "gap": 4},
+                      "startArrowhead": None, "endArrowhead": "arrow", "roundness": None})
+            for pid in (ln["from"], ln["to"]):
+                parts[pid]["boundElements"] = (parts[pid]["boundElements"] or []) + [
+                    {"id": aid, "type": "arrow"}]
+            if ln.get("label"):
+                # Excalidraw puts an arrow's label on the middle of its line
+                k = len(pts) // 2
+                (ax, ay), (bx, by) = (pts[k], pts[k]) if len(pts) % 2 else (pts[k - 1], pts[k])
+                tw, th = cv.size(ln["label"], 16)
+                t = cv.text(f"{aid}_t", (ax + bx) / 2 - tw / 2, (ay + by) / 2 - th / 2,
+                            ln["label"], 16, color if status == "later" else INK, aid, "center")
+                e["boundElements"] = [{"id": t["id"], "type": "text"}]
+
+        # A band name an arrow runs through moves to the band's right end.
+        def crossed(t):
+            for a in cv.els:
+                if a["type"] != "arrow" or not a["id"].startswith(prefix + "link"):
+                    continue
+                pts = [(a["x"] + px, a["y"] + py) for px, py in a["points"]]
+                for (ax, ay), (bx, by) in zip(pts, pts[1:]):
+                    if (min(ax, bx) < t["x"] + t["width"] and max(ax, bx) > t["x"]
+                            and min(ay, by) < t["y"] + t["height"] and max(ay, by) > t["y"]):
+                        return True
+            return False
+
+        for bi in range(len(spec["bands"])):
+            t = cv.by_id[f"{prefix}band{bi}_t"]
+            if crossed(t):
+                t["x"], t["textAlign"] = 20 + width - 16 - t["width"], "right"
+                if crossed(t):
+                    print(f"layout: an arrow runs through band name {spec['bands'][bi]['name']!r}")
+        return y
+
+    q = spec.get("questions")
+    simple_w = W - 380 if q else W
+    top = y
+    y = level("s_", spec.get("simple_heading", "The simple version"), y, False, simple_w)
+    if q:  # questions only someone else can answer, big, beside the simple version
+        qx = simple_w + 40
+        cv.text("q_head", qx, top + 50, wrap(q["title"], 24, W - qx), 24, RED)
+        qy = top + 50 + cv.size(wrap(q["title"], 24, W - qx), 24)[1] + 20
+        for n, item in enumerate(q["items"], 1):
+            t = cv.text(f"q{n}", qx, qy, wrap(f"{n}. {item}", 22, W - qx), 22, INK)
+            qy += t["height"] + 18
+        y = max(y, qy + 40)
+    y += 20
+    level("f_", spec.get("full_heading", "The full system, step by step"), y, True, W)
+
+    left = sorted(guesses)
+    if left and left != list(range(1, len(left) + 1)):
+        print(f"warning: guess numbers should run 1..{len(left)}, got {left}")
+    for n in left:
+        print(f"guess {n}: {' / '.join(dict.fromkeys(guesses[n]))}")
+    print(f"{len(left)} question(s) left")
+    for problem in check(cv.els):
+        print("layout:", problem)
+    return cv
+
+
+def check(els: list[dict]) -> list[str]:
+    """Boxes that overlap and arrows that run through boxes they don't connect."""
+    boxes = [e for e in els if e["type"] in ("rectangle", "ellipse", "diamond")
+             and "band" not in e["id"] and not e["id"].startswith("key")]
+
+    def inside(a, b):
+        return (b["x"] <= a["x"] and b["y"] <= a["y"] and a["x"] + a["width"] <= b["x"] + b["width"]
+                and a["y"] + a["height"] <= b["y"] + b["height"])
+
+    def hit(a, b):
+        return not (a["x"] + a["width"] <= b["x"] or b["x"] + b["width"] <= a["x"]
+                    or a["y"] + a["height"] <= b["y"] or b["y"] + b["height"] <= a["y"])
+
+    out = []
+    for i, a in enumerate(boxes):
+        for b in boxes[i + 1:]:
+            if hit(a, b) and not inside(a, b) and not inside(b, a) and not (
+                    a["id"].endswith("_q") or b["id"].endswith("_q")):
+                out.append(f"{a['id']} overlaps {b['id']}")
+    for e in els:
+        if e["type"] != "arrow":
+            continue
+        own = {e["startBinding"]["elementId"], e["endBinding"]["elementId"]}
+        pts = [(e["x"] + px, e["y"] + py) for px, py in e["points"]]
+        for b in boxes:
+            if b["id"] in own or any(b["id"].startswith(o + "_") for o in own):
+                continue
+            if any(o.startswith(b["id"] + "_") for o in own):
+                continue  # a step's arrow inside its own part
+            x0, y0, x1, y1 = b["x"] + 3, b["y"] + 3, b["x"] + b["width"] - 3, b["y"] + b["height"] - 3
+            for (ax, ay), (bx, by) in zip(pts, pts[1:]):
+                if (min(ax, bx) < x1 and max(ax, bx) > x0 and min(ay, by) < y1
+                        and max(ay, by) > y0):
+                    out.append(f"arrow {e['id']} runs through {b['id']}")
+                    break
+    for t in els:  # arrow labels must sit in open space
+        if t["type"] != "text" or not str(t.get("containerId", "")).count("link"):
+            continue
+        for b in boxes:
+            if hit(t, b):
+                out.append(f"label {t['id']} sits on {b['id']}")
+    return out
+
+
 def main() -> None:
-    if len(sys.argv) < 3 or sys.argv[1] not in ("blueprint", "flow"):
+    if len(sys.argv) < 3 or sys.argv[1] not in ("map", "blueprint", "flow"):
         sys.exit(__doc__)
     spec_path = Path(sys.argv[2])
     out = Path(sys.argv[3]) if len(sys.argv) > 3 else spec_path.with_suffix(".excalidraw")
     spec = json.loads(spec_path.read_text())
-    cv = build_blueprint(spec) if sys.argv[1] == "blueprint" else build_flow(spec)
+    cv = {"map": build_map, "blueprint": build_blueprint, "flow": build_flow}[sys.argv[1]](spec)
     out.write_text(json.dumps(cv.doc(), indent=1))
     print(f"wrote {out} ({len(cv.els)} elements)")
 

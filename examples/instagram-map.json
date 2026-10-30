@@ -1,0 +1,55 @@
+{
+  "title": "Instagram comment-to-DM system",
+  "subtitle": "Example. Read top to bottom: the simple version first, then the full system.",
+  "who": {
+    "coach": {"label": "Coach"},
+    "system": {"label": "Coach's system"},
+    "store": {"label": "Stores"},
+    "online": {"label": "Instagram and followers", "fill": "#fed7aa", "stroke": "#c2410c"}
+  },
+  "bands": [
+    {"name": "Coach's side", "parts": [
+      {"id": "coach", "name": "Coach", "who": "coach", "sub": "takes over hot leads",
+       "steps": [
+         {"text": "Gets a Slack alert for each hot lead"},
+         {"text": "Replies in the same chat", "status": "guess", "guess": 1},
+         {"text": "Books the call"}]}
+    ]},
+    {"name": "Coach's system, always on", "parts": [
+      {"id": "auto", "name": "Automation", "who": "system", "sub": "n8n workflow", "weight": 1.2,
+       "steps": [
+         {"text": "Gets each new comment"},
+         {"text": "Keyword GUIDE, not DM'd before?"},
+         {"text": "Sends the guide by DM"},
+         {"text": "Pauses for this person once the coach replies", "status": "guess", "guess": 1}]},
+      {"id": "ai", "name": "AI agent", "who": "system", "sub": "answers DMs", "status": "next",
+       "steps": [
+         {"text": "Answers from the knowledge base", "status": "next"},
+         {"text": "Hot lead when they ask to buy", "status": "guess", "guess": 2},
+         {"text": "Weekly report to the coach", "status": "later"}]}
+    ]},
+    {"name": "Stores", "parts": [
+      {"id": "contacts", "name": "Contacts table", "who": "store",
+       "steps": [{"text": "One row per person: DM sent, when"}]},
+      {"id": "kb", "name": "Knowledge base", "who": "store", "status": "next",
+       "steps": [{"text": "FAQ and prices, the coach edits", "status": "next"}]}
+    ]},
+    {"name": "Online", "parts": [
+      {"id": "ig", "name": "Instagram", "who": "online", "sub": "reels, comments, DMs",
+       "steps": [
+         {"text": "Follower comments GUIDE"},
+         {"text": "Follower opens the DM and asks"}]}
+    ]}
+  ],
+  "links": [
+    {"from": "ig", "to": "auto", "label": "new comment"},
+    {"from": "auto", "to": "contacts", "label": "checks, saves"},
+    {"from": "ai", "to": "kb", "label": "reads answers", "status": "next"},
+    {"from": "auto", "to": "ai", "label": "DM question", "status": "next"},
+    {"from": "auto", "to": "coach", "label": "hot lead alert"}
+  ],
+  "questions": {
+    "title": "Questions only the coach can answer",
+    "items": ["Which words make someone a hot lead?", "May the system DM people who never commented?"]
+  }
+}

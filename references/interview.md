@@ -66,6 +66,10 @@ These catch the problems that only show up when the whole thing runs for weeks.
 - **Duplicates and order**: can the same event arrive twice or out of order? What
   prevents double actions?
 - **Stopping**: how is the system paused, and how does a human take over cleanly?
+- **Stores**: for every folder, queue or table: what is in it, who puts it in, what
+  happens next, is the owner in the loop? One place per kind of thing, named by what is in
+  it and what for; only busy things get their own place; whoever finishes a step moves
+  the thing on, so it stays tidy without a clean-up job (see `map-method.md`).
 
 Each answer either becomes a branch in a flow diagram or a numbered problem.
 
@@ -85,6 +89,7 @@ Keep one Markdown file, updated after every answer:
 - Input: …
 (all fields)
 ## Systems checks
+## Stores (place, what is in it, who puts it in, what happens next, owner in the loop?)
 ## Decisions (date, decision, why)
 ## Open questions
 - Q-1 (open): …

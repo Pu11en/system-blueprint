@@ -1,6 +1,6 @@
 ---
 name: system-blueprint
-description: Design an automation or business system so nothing is vague, then draw it the way professional system designers do. Interviews the user one question at a time with a fixed step checklist (trigger, input, action, tool, output, failure, human hand-off), keeps a design log with open questions, then produces an Excalidraw service blueprint (the whole system over time, from what people see to what is hidden) and BPMN-style flows (every failure path for one journey). Use when someone wants to plan, map, audit or redesign a workflow, automation, agent system, bot, funnel or internal process, or says their system "feels vague" or "I keep missing things".
+description: Design an automation or business system so nothing is vague, then draw it the way professional system designers do. Interviews the user one question at a time with a fixed step checklist (trigger, input, action, tool, output, failure, human hand-off), keeps a design log with open questions, then produces an Excalidraw system map read top to bottom (the simple version, then the full system; built, next build and later shown apart; guesses numbered), plus a service blueprint (the whole system over time) and BPMN-style flows (every failure path for one journey) when needed. Use when someone wants to plan, map, audit or redesign a workflow, automation, agent system, bot, funnel or internal process, or says their system "feels vague" or "I keep missing things".
 ---
 
 # System Blueprint
@@ -12,9 +12,13 @@ read like a professional's.
 Two outputs, always:
 
 1. **Design log** (`<name>-design.md`): every decision, every step card, every open question.
-2. **Diagrams** (`.excalidraw` + `.png`): one **service blueprint** for the whole system and
-   one **flow** per important journey. Open `.excalidraw` files at excalidraw.com or any
-   self-hosted Excalidraw.
+2. **Diagrams** (`.excalidraw` + `.png`): one **system map** (the simple version on top, the
+   full system under it, one drawing), plus a **service blueprint** or a **flow** per
+   important journey when the builder needs that detail. Open `.excalidraw` files at
+   excalidraw.com or any self-hosted Excalidraw.
+
+When the owner is not technical, run the whole session the way `references/map-method.md`
+describes: it is what made a real owner understand every part of their system.
 
 ## Process
 
@@ -40,9 +44,11 @@ Follow `references/interview.md`. The rules that matter most:
 
 ### 3. Draw
 
-Read `references/diagram-rules.md`, then write JSON specs and build with the scripts:
+Read `references/map-method.md` and `references/diagram-rules.md`, then write JSON specs
+and build with the scripts:
 
 ```bash
+python3 scripts/diagram.py map my-map.json               # -> my-map.excalidraw
 python3 scripts/diagram.py blueprint my-blueprint.json   # -> my-blueprint.excalidraw
 python3 scripts/diagram.py flow my-flow.json             # -> my-flow.excalidraw
 uv run scripts/render.py my-blueprint.excalidraw         # -> my-blueprint.png
@@ -51,6 +57,12 @@ uv run scripts/render.py my-blueprint.excalidraw         # -> my-blueprint.png
 Spec fields are in `references/spec-format.md`; working examples are in `examples/`.
 First render only: `uv run --with playwright playwright install chromium`.
 
+- **Map** (always, and first): every part placed by who owns it, in bands top to bottom.
+  Show the simple version and agree it before filling in steps; going deeper grows the same
+  map underneath. Solid = built, dashed = next build, grey = later. Anything the user has
+  not said about how it works for people is a yellow guess numbered in the order you ask
+  about it, one at a time, in chat. Questions only someone else can answer go beside the
+  simple version.
 - **Blueprint**: phases left to right (with time), lanes top to bottom: the person, what
   they see, the system, the AI, support/data. Lines of interaction and visibility.
   Label every hand-off arrow with what travels. Problems row at the bottom.
@@ -60,7 +72,8 @@ First render only: `uv run --with playwright playwright install chromium`.
 
 ### 4. Check before showing
 
-Render to PNG and **look at it**. Fix overlapping text, arrows through boxes, labels on top
+Render to PNG and **look at it**. The map build prints layout problems and how many
+questions are left; fix the spec until it prints none. Fix overlapping text, arrows through boxes, labels on top
 of lines, and anything cut off. Then check the content: every step card from the log
 appears somewhere, every failure from the cards appears in a flow, and every problem has a
 number that matches the log.
@@ -75,9 +88,11 @@ changes.
 ## Files
 
 - `references/interview.md`: question order, the step card, systems checks, log format.
+- `references/map-method.md`: how to plan a system in pictures with its owner (tested).
 - `references/diagram-rules.md`: what professionals do (C4, service blueprint, BPMN) and
   the layout rules the scripts follow.
 - `references/spec-format.md`: JSON fields for `blueprint` and `flow`.
-- `scripts/diagram.py`: JSON spec to `.excalidraw` (standard library only).
+- `scripts/diagram.py`: JSON spec (`map`, `blueprint`, `flow`) to `.excalidraw` (standard
+  library only).
 - `scripts/render.py`: `.excalidraw` to PNG via headless Chromium (uv inline deps).
-- `examples/`: an Instagram comment-to-DM system as blueprint and flow, specs and output.
+- `examples/`: an Instagram comment-to-DM system as map, blueprint and flow, specs and output.
