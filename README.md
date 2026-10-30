@@ -1,33 +1,33 @@
 # system-blueprint
 
-An agent skill (Claude Code, Codex and other `SKILL.md` agents) for designing automation and
-business systems **without vague parts**, then drawing them the way professional system
-designers do.
+An agent skill (Claude Code, Codex and other `SKILL.md` agents) for **planning a system in
+pictures instead of documents**, level by level, until there are no holes.
 
-1. **Interview**: one question at a time, multiple choice with a recommendation, using a
-   fixed step checklist: trigger, input, action, tool, output, failure, human hand-off.
-   Answers go into a design log after every reply, with numbered open questions.
-2. **Draw**: Excalidraw diagrams:
-   - a **system map**, read top to bottom: the simple version, then the full system with
-     every part's steps; built, next build and later look different, and guesses are
-     yellow with the number of the question that settles them;
-   - a **service blueprint** of the whole system: stages over time, from what people see
-     down to what is hidden;
-   - **BPMN-style flows**: the normal path in a straight line, with every failure, retry and
-     dead end branching off.
+1. **The simple version**: the whole system as one map, every part placed by who owns it,
+   including what is not built yet.
+2. **Ask, one at a time**: every assumption is a yellow guess numbered in the order it is
+   asked, each with a proposed answer.
+3. **Go deeper**: the next level grows under the last in the same top-to-bottom picture,
+   every part opened up with its steps. It ends as the simple version plus the full system.
+4. **Built, next, later**: solid, dashed and grey, so it is clear what gets built now.
+5. **Find the holes**: rounds over every step, failure, hand-off and store until a round
+   finds nothing new. Then a build plan straight from the picture.
+
+It is the process that worked when a non-technical owner planned a real two-person system
+end to end, written down so the next system goes faster.
 
 ## Example: Instagram comment-to-DM system
 
-![System map: the simple version, then the full system](examples/instagram-map.png)
+The simple version, as Mermaid for a chat or a board:
 
-![Service blueprint](examples/instagram-blueprint.png)
+![The simple version](examples/instagram-plan-simple.png)
 
-![Flow with every failure path](examples/instagram-flow.png)
+The whole picture: the simple version, then the full system with numbered guesses:
 
-Specs: [`examples/instagram-map.json`](examples/instagram-map.json),
-[`examples/instagram-blueprint.json`](examples/instagram-blueprint.json),
-[`examples/instagram-flow.json`](examples/instagram-flow.json). Open the `.excalidraw`
-files at [excalidraw.com](https://excalidraw.com) to edit them.
+![The simple version, then the full system](examples/instagram-plan.png)
+
+Plan: [`examples/instagram-plan.json`](examples/instagram-plan.json). Open the
+`.excalidraw` file at [excalidraw.com](https://excalidraw.com) to look around or edit it.
 
 ## Install
 
@@ -36,31 +36,25 @@ git clone https://github.com/Pu11en/system-blueprint ~/.claude/skills/system-blu
 # or: ~/.agents/skills/system-blueprint, ~/.codex/skills/system-blueprint
 ```
 
-Then ask your agent: *"Use system-blueprint to design my <idea> system."*
+Then ask your agent: *"Use system-blueprint to plan my <idea> system."*
 
-Requirements: Python 3.10+ for `scripts/diagram.py` (standard library only).
+Requirements: Python 3.10+ for `scripts/plan.py` (standard library only).
 For PNG rendering: [uv](https://docs.astral.sh/uv/), then once:
 `uv run --with playwright playwright install chromium`.
 
 ## Use the scripts directly
 
 ```bash
-python3 scripts/diagram.py map examples/instagram-map.json
-python3 scripts/diagram.py blueprint examples/instagram-blueprint.json
-python3 scripts/diagram.py flow examples/instagram-flow.json
-uv run scripts/render.py examples/instagram-flow.excalidraw
+python3 scripts/plan.py examples/instagram-plan.json      # -> .excalidraw and .md
+uv run scripts/render.py examples/instagram-plan.excalidraw
+uv run scripts/render.py examples/instagram-plan.md
 ```
 
 ## Credits
 
-Diagram conventions come from the [C4 model](https://c4model.com) (Simon Brown),
-[service blueprints](https://www.nngroup.com/articles/service-blueprints-definition/)
-(Nielsen Norman Group) and [BPMN](https://www.omg.org/bpmn/). Rendering uses
-[Excalidraw](https://github.com/excalidraw/excalidraw). Inspired by the
-[excalidraw-diagram-skill](https://github.com/coleam00/excalidraw-diagram-skill) and the
-"grill me" interview skills. The map and
-[the method behind it](references/map-method.md) come from planning a real system with its
-non-technical owner.
+Rendering uses [Excalidraw](https://github.com/excalidraw/excalidraw) and
+[Mermaid](https://mermaid.js.org). The hole checklist borrows from service blueprints
+(Nielsen Norman Group), BPMN and the "grill me" interview skills.
 
 ## License
 

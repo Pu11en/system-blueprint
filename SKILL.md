@@ -1,98 +1,124 @@
 ---
 name: system-blueprint
-description: Design an automation or business system so nothing is vague, then draw it the way professional system designers do. Interviews the user one question at a time with a fixed step checklist (trigger, input, action, tool, output, failure, human hand-off), keeps a design log with open questions, then produces an Excalidraw system map read top to bottom (the simple version, then the full system; built, next build and later shown apart; guesses numbered), plus a service blueprint (the whole system over time) and BPMN-style flows (every failure path for one journey) when needed. Use when someone wants to plan, map, audit or redesign a workflow, automation, agent system, bot, funnel or internal process, or says their system "feels vague" or "I keep missing things".
+description: Plan a system in pictures instead of documents, level by level, until there are no holes. Starts with the simple version (the whole system as one map, every part placed by who owns it), then goes deeper one level at a time in the same top-to-bottom picture, marks every assumption as a numbered yellow guess asked one at a time, shows what is built, next and later, and runs hole-finding rounds until it is ready to build. Use when someone wants to plan, think through, map, audit or redesign a workflow, automation, agent system, bot, business process or any system with several people or tools, or says a plan "feels vague", "I don't understand it" or "I keep missing things".
 ---
 
-# System Blueprint
+# System Blueprint: plan in pictures, level by level
 
-Turn a fuzzy idea ("an Instagram system that handles posts, comments and DMs") or an
-existing messy system into a design with no vague parts, and show it in pictures that
-read like a professional's.
+Planning with a picture beats planning with a document: the owner sees the whole system,
+points at what is wrong, and understands more each round. This skill is the process that
+worked when a non-technical owner planned a real two-person system end to end: little at a
+time, each level more detailed as they understand, until nothing is missing.
 
-Two outputs, always:
+**The picture is the plan.** Chat carries one question at a time. Notes are for the agent
+(`<name>-plan.json` plus a short notes file of decisions and open questions); the owner
+should never need to read them. The tool that draws the picture matters less than the
+process below.
 
-1. **Design log** (`<name>-design.md`): every decision, every step card, every open question.
-2. **Diagrams** (`.excalidraw` + `.png`): one **system map** (the simple version on top, the
-   full system under it, one drawing), plus a **service blueprint** or a **flow** per
-   important journey when the builder needs that detail. Open `.excalidraw` files at
-   excalidraw.com or any self-hosted Excalidraw.
+## The process
 
-When the owner is not technical, run the whole session the way `references/map-method.md`
-describes: it is what made a real owner understand every part of their system.
+### 0. Read what exists first
 
-## Process
+Read the code, notes and the owner's own records (emails, chats, earlier answers). Never
+ask what you can look up, and never propose a test or a task for the owner before checking
+there.
 
-### 1. Find out what exists
+### 1. The simple version (Level 1)
 
-If it is an existing system, read the code, docs and notes first; never ask the user what
-you can look up. Write a short "how it works today" section in the design log with the
-problems you found. If it is a new idea, skip to step 2.
+Draw the whole system as one **map**: a row per side, top to bottom (the owner's side, the
+shared middle, the other people's side, where things end up, such as online), every part
+placed in its row, arrows labelled with what travels (2 to 4 words). Not a chain of steps:
+a chain is "too linear" and covers only part of the system.
 
-### 2. Interview, one question at a time
+- Include what is not built yet. Plan the future system, not only today's.
+- Few words per box, real names for people and places, colour by who does it.
+- Show it beside the chat, give its link, and shape it with the owner until they agree.
+- End the reply by offering to go deeper.
 
-Follow `references/interview.md`. The rules that matter most:
+### 2. Ask about every assumption, one at a time
 
-- **One question per message**, as lettered multiple choice (A/B/C) with your recommended
-  answer and a one-line reason. The user can always answer in their own words.
-- Plain language. Ask about the system's behaviour, not about code internals.
-- Go **system level first** (goal, people, triggers, volume, tools, rules), then **step by
-  step** along the main journey. Each step is done only when its **step card** is full.
-- Anything still unknown becomes an open question `Q-<n>` in the log, not a guess.
-- **Write the answer into the design log after every reply**, so a long session never
-  loses work.
-- Stop when every step card is full and no open question blocks building. Say so plainly.
+Anything about how the system works for the people in it that the owner has not said is a
+**guess**: yellow on the picture, with a small number for the order you will ask about it.
+In chat, ask one question at a time with your proposed answer and a one-line reason; the
+owner can answer in their own words. One decision covering several boxes gets one number;
+say how many questions are left, not how many boxes. Technical choices (how to build it)
+are yours to make; don't ask.
 
-### 3. Draw
+Update the picture after every answer, then ask the next one.
 
-Read `references/map-method.md` and `references/diagram-rules.md`, then write JSON specs
-and build with the scripts:
+### 3. Go deeper, one level at a time
+
+Draw the next level **under** the last one, in the same picture: the same map with every
+part opened up, its steps inside it in order. One picture read top to bottom: no pages, no
+cards, nothing side by side, no separate picture per level.
+
+When the owner approves a deeper level, remove the one above it, except the simple version,
+which stays on top. The picture ends as two parts: **the simple version** and **the full
+system, step by step**. Go deeper again only where the owner wants more detail.
+
+### 4. Say what gets built, and when
+
+Solid: built and working. Dashed: the next build. Grey: later, not in this build. Ask the
+owner which parts are in the next build; don't guess. Keep the later parts on the picture
+so the next build leaves room for them.
+
+### 5. Find the holes, round after round
+
+Run `references/finding-holes.md` over every part and arrow: what starts it, what comes in
+and out, what fails, who takes over, what piles up, where each thing is stored. Research
+how systems like this one usually break. Every hole becomes a new guess on the picture or a
+question in chat. Repeat ("go through everything again") until a round finds nothing new.
+
+Questions only someone else can answer: answer them yourselves first from what you have,
+never ask how they run their own tools, and list what remains in big text beside the simple
+version.
+
+### 6. Ready to build
+
+When the owner asks if planning is done, say plainly what is still open, what the build can
+start without, and what waits on someone else. Then write a short build plan from the full
+system: each box is one piece to build, each arrow a hand-off. Build from the picture; if
+the build must differ, change the picture first and say so.
+
+## How to work with the owner
+
+- Go at their pace: little at a time, more detail only as they understand.
+- Keep the look once it works. If they say it needs "a little more" but cannot say what,
+  don't make new looks: ask one yes-or-no question about one small change.
+- When they say "I don't understand" or "I'm confused", find what caused it (a word, a
+  number, a crowded part), fix the picture, and keep that fix for every later picture.
+- Use their words, never yours: no jargon, no internal names ("test tab", "bot" when they
+  say "my system").
+- Anything made for someone else to see (an email, a guide, a presentation) never includes
+  what the owner said about that person.
+- A story or analogy to present the idea is one picture, like a painting: never cards or
+  panels. Fact-check every claim in it and confirm each part with the owner first.
+
+## Drawing it
+
+Write the plan as JSON (`references/plan-format.md`) and build both pictures from it:
 
 ```bash
-python3 scripts/diagram.py map my-map.json               # -> my-map.excalidraw
-python3 scripts/diagram.py blueprint my-blueprint.json   # -> my-blueprint.excalidraw
-python3 scripts/diagram.py flow my-flow.json             # -> my-flow.excalidraw
-uv run scripts/render.py my-blueprint.excalidraw         # -> my-blueprint.png
+python3 scripts/plan.py my-plan.json             # -> my-plan.excalidraw, my-plan.md
+uv run scripts/render.py my-plan.excalidraw      # -> my-plan.png: look at it
 ```
 
-Spec fields are in `references/spec-format.md`; working examples are in `examples/`.
-First render only: `uv run --with playwright playwright install chromium`.
+- `my-plan.excalidraw`: the whole picture, the simple version then the full system. Open it
+  in any Excalidraw (excalidraw.com or self-hosted), or show the PNG.
+- `my-plan.md`: the simple version as Mermaid, for a chat or a board beside the chat that
+  shows Mermaid, plus the questions. Mermaid can't keep the full system tidy (its automatic
+  layout loses the row order and crosses arrows), so the full system is always the drawing.
+- The build prints every numbered guess, how many questions are left, and any layout
+  problem. Fix the plan until there are none, render, and **look at the PNG** before
+  showing it. First render only: `uv run --with playwright playwright install chromium`.
 
-- **Map** (always, and first): every part placed by who owns it, in bands top to bottom.
-  Show the simple version and agree it before filling in steps; going deeper grows the same
-  map underneath. Solid = built, dashed = next build, grey = later. Anything the user has
-  not said about how it works for people is a yellow guess numbered in the order you ask
-  about it, one at a time, in chat. Questions only someone else can answer go beside the
-  simple version.
-- **Blueprint**: phases left to right (with time), lanes top to bottom: the person, what
-  they see, the system, the AI, support/data. Lines of interaction and visibility.
-  Label every hand-off arrow with what travels. Problems row at the bottom.
-- **Flow**: one journey. Normal path in a straight line; every yes/no check that can go
-  wrong branches below; outside interruptions (restarts, a human stepping in) come from
-  above. Every branch ends in a rejoin, a retry, or a clearly marked dead end.
-
-### 4. Check before showing
-
-Render to PNG and **look at it**. The map build prints layout problems and how many
-questions are left; fix the spec until it prints none. Fix overlapping text, arrows through boxes, labels on top
-of lines, and anything cut off. Then check the content: every step card from the log
-appears somewhere, every failure from the cards appears in a flow, and every problem has a
-number that matches the log.
-
-### 5. Hand over
-
-Explain the result in a few plain sentences: what the system does, the biggest risks the
-diagrams expose, and the next decision needed. Attach the PNGs; point to the `.excalidraw`
-files for editing. Keep the design log as the source of truth and update diagrams when it
-changes.
+Any other drawing tool is fine if the picture follows `references/pictures.md`.
 
 ## Files
 
-- `references/interview.md`: question order, the step card, systems checks, log format.
-- `references/map-method.md`: how to plan a system in pictures with its owner (tested).
-- `references/diagram-rules.md`: what professionals do (C4, service blueprint, BPMN) and
-  the layout rules the scripts follow.
-- `references/spec-format.md`: JSON fields for `blueprint` and `flow`.
-- `scripts/diagram.py`: JSON spec (`map`, `blueprint`, `flow`) to `.excalidraw` (standard
-  library only).
-- `scripts/render.py`: `.excalidraw` to PNG via headless Chromium (uv inline deps).
-- `examples/`: an Instagram comment-to-DM system as map, blueprint and flow, specs and output.
+- `references/pictures.md`: how the pictures look, and what made an owner lost.
+- `references/finding-holes.md`: the hole checklist, how to ask, how to design stores.
+- `references/plan-format.md`: the plan's JSON fields.
+- `scripts/plan.py`: plan JSON to Excalidraw drawing and Mermaid (standard library only).
+- `scripts/render.py`: drawing or Mermaid to PNG via headless Chromium.
+- `examples/`: an Instagram comment-to-DM system as a plan.

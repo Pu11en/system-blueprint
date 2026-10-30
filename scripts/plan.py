@@ -1,15 +1,13 @@
 #!/usr/bin/env python3
-"""Build .excalidraw diagrams from a JSON spec.
+"""Turn a plan (JSON) into pictures: the simple version, then the full system.
 
-    python diagram.py map spec.json [out.excalidraw]
-    python diagram.py blueprint spec.json [out.excalidraw]
-    python diagram.py flow spec.json [out.excalidraw]
+    python3 plan.py plan.json   # -> plan.excalidraw and plan.md
 
-map: the whole system as one drawing read top to bottom: the simple version (every part,
-  placed by who owns it), then the full system (the same map with each part's steps).
-blueprint: a service blueprint (phases over time x lanes from visible to hidden).
-flow: a BPMN-style flow (straight normal path, failure branches below, interrupts above).
-See references/spec-format.md for the JSON fields. Standard library only.
+plan.excalidraw: one drawing read top to bottom, the simple version then the full system.
+plan.md: the simple version as Mermaid, for a chat or a board beside it, plus the questions.
+Prints every numbered guess, how many questions are left, and layout problems (overlaps,
+arrows through boxes, labels on boxes).
+See references/plan-format.md for the JSON fields. Standard library only.
 """
 
 from __future__ import annotations
@@ -18,22 +16,7 @@ import json
 import sys
 from pathlib import Path
 
-KINDS = {  # kind: (fill, stroke)
-    "person": ("#fed7aa", "#c2410c"),
-    "frontstage": ("#a7f3d0", "#047857"),
-    "system": ("#93c5fd", "#1e3a5f"),
-    "ai": ("#ddd6fe", "#6d28d9"),
-    "support": ("#dbeafe", "#1e40af"),
-    "decision": ("#fef3c7", "#b45309"),
-    "error": ("#fecaca", "#b91c1c"),
-    "note": ("#f1f5f9", "#64748b"),
-    "end": ("#a7f3d0", "#047857"),
-}
-KIND_LABELS = {
-    "person": "person", "frontstage": "what they see", "system": "system step",
-    "ai": "AI step", "support": "storage / support", "decision": "yes/no check",
-    "error": "failure / problem #", "note": "side note", "end": "good end",
-}
+KINDS = {"decision": ("#fef3c7", "#b45309")}  # kind: (fill, stroke)
 TITLE, SUB, BODY, ONLIGHT, RED, NAVY = (
     "#1e40af", "#3b82f6", "#64748b", "#374151", "#b91c1c", "#1e3a5f")
 
@@ -123,198 +106,17 @@ class Canvas:
             (ax, ay), (bx, by) = pts[mid - 1], pts[mid]
             self.text(f"{eid}_l", (ax + bx) / 2 + lx, (ay + by) / 2 + ly, label, 13, ONLIGHT)
 
-    def line(self, eid: str, x: float, y: float, w: float, dashed: bool = False,
-             width: int = 2) -> None:
-        e = self._base("line", eid, x, y, w, 0)
-        e.update({"points": [[0, 0], [w, 0]], "strokeWidth": width})
-        if dashed:
-            e["strokeStyle"] = "dashed"
-
-    def flag(self, eid: str, x: float, y: float, n: object) -> None:
-        self.shape(eid, x, y, 34, 34, str(n), "error", "ellipse", fs=15)
-
-    def key(self, x: float, y: float, kinds: list[str], note: str = "") -> None:
-        self.text("key_h", 40, y, "KEY", 16, SUB)
-        for j, kind in enumerate(kinds):
-            form = "diamond" if kind == "decision" else "rectangle"
-            self.shape(f"key{j}", x + j * 280, y - 4, 32, 26, "", kind, form)
-            self.text(f"keyt{j}", x + j * 280 + 42, y, KIND_LABELS[kind], 14, BODY)
-        if note:
-            self.text("key_note", x, y + 40, note, 13, BODY)
-
-    def header(self, spec: dict) -> None:
-        self.text("title", 40, 24, spec["title"], 30, TITLE)
-        if spec.get("subtitle"):
-            self.text("subtitle", 40, 66, spec["subtitle"], 16, BODY)
-
     def doc(self) -> dict:
         return {"type": "excalidraw", "version": 2, "source": "https://excalidraw.com",
                 "elements": self.els,
                 "appState": {"viewBackgroundColor": "#ffffff", "gridSize": None}, "files": {}}
 
 
-def build_blueprint(spec: dict) -> Canvas:
-    cv = Canvas()
-    cv.header(spec)
-    x0, col, box_w = 300, spec.get("column_width", 420), spec.get("column_width", 420) - 60
-    lane_h, gap = spec.get("lane_height", 100), 60
-    phases, lanes = spec["phases"], spec["lanes"]
-    width = x0 + len(phases) * col - 40
-
-    for i, ph in enumerate(phases):
-        cv.text(f"ph{i}", x0 + i * col, 120, ph["name"], 19, TITLE)
-        if ph.get("time"):
-            cv.text(f"tm{i}", x0 + i * col, 160, ph["time"], 15, BODY)
-    if any(ph.get("time") for ph in phases):
-        cv.text("time_h", 40, 160, "TIME", 16, SUB)
-
-    lane_y: dict[str, float] = {}
-    y = 230
-    for lane in lanes:
-        lane_y[lane["key"]] = y
-        cv.text(f"lane_{lane['key']}", 40, y + 22, lane["label"], 16, TITLE)
-        for i, ph in enumerate(phases):
-            cell = ph.get("cells", {}).get(lane["key"])
-            if cell:
-                cv.shape(f"{lane['key']}{i}", x0 + i * col, y, box_w, lane_h, cell,
-                         lane["kind"])
-        line = lane.get("line_below")
-        if line:
-            ly = y + lane_h + gap / 2
-            style = line.get("style", "dashed")
-            cv.line(f"line_{lane['key']}", 40, ly, width, dashed=style == "dashed",
-                    width=3 if style == "solid" else 2)
-            cv.text(f"line_{lane['key']}_t", 40, ly - 20, line["label"], 12, BODY)
-        y += lane_h + gap
-
-    order = [lane["key"] for lane in lanes]
-    first = order[0]
-    if spec.get("connect_first_lane", True):
-        for i in range(len(phases) - 1):
-            a, b = f"{first}{i}", f"{first}{i + 1}"
-            if a in cv.by_id and b in cv.by_id:
-                cv.arrow(f"next{i}", a, b, "rl")
-    for n, h in enumerate(spec.get("handoffs", [])):
-        a, b = f"{h['from']}{h['phase']}", f"{h['to']}{h['phase']}"
-        i, j = order.index(h["from"]), order.index(h["to"])
-        between = order[min(i, j) + 1:max(i, j)]
-        if any(f"{k}{h['phase']}" in cv.by_id for k in between):
-            # A box sits in the way: run down the gutter to the right of the column.
-            (_, ay), (_, by) = cv.anchor(a, "r"), cv.anchor(b, "r")
-            gx = x0 + h["phase"] * col + box_w + 22
-            cv.arrow(f"hand{n}", a, b, "rr", via=[(gx, ay), (gx, by)],
-                     dashed=h.get("dashed", False))
-            if h.get("label"):  # in the empty gap between lanes, just inside the gutter
-                lw, _ = cv.size(h["label"], 13)
-                gap_y = ay + lane_h / 2 + 8 if i < j else ay - lane_h / 2 - 26
-                cv.text(f"hand{n}_l", gx - lw - 8, gap_y, h["label"], 13, ONLIGHT)
-            continue
-        cv.arrow(f"hand{n}", a, b, "bt" if i < j else "tb", label=h.get("label", ""),
-                 lx=10, ly=4, dashed=h.get("dashed", False))
-
-    if spec.get("problems"):
-        cv.text("pain_h", 40, y + 10, "PROBLEMS", 16, RED)
-        for n, p in enumerate(spec["problems"]):
-            px = x0 + p["phase"] * col
-            cv.flag(f"pf{n}", px, y + 5, p.get("n", n + 1))
-            cv.text(f"pt{n}", px + 44, y + 5, p["text"], 14, RED)
-        y += 90
-    kinds = list(dict.fromkeys(lane["kind"] for lane in lanes))
-    if spec.get("problems"):
-        kinds.append("error")
-    cv.key(x0, y + 20, kinds, "Arrow labels say what travels between steps. "
-           "Boxes in one column happen at the same stage.")
-    return cv
-
-
-def build_flow(spec: dict) -> Canvas:
-    cv = Canvas()
-    cv.header(spec)
-    mid = 390
-    sizes = {"start": (140, 80), "end": (160, 80), "decision": (180, 130),
-             "step": (210, 90), "fail": (210, 100), "note": (210, 90)}
-    main, index = spec["main"], {}
-    x = 40
-    for i, node in enumerate(main):
-        t = node.get("type", "step")
-        w, h = sizes[t]
-        kind = {"start": "person", "end": "end", "decision": "decision"}.get(
-            t, node.get("kind", "system"))
-        form = "ellipse" if t in ("start", "end") else "diamond" if t == "decision" else "rectangle"
-        cv.shape(node["id"], x, mid - h / 2, w, h, node["text"], kind, form, fs=13)
-        index[node["id"]] = i
-        x += w + 70
-    cv.text("happy", 40, mid - 130, "NORMAL PATH", 16, SUB)
-    for i in range(len(main) - 1):
-        a = main[i]
-        cv.arrow(f"main{i}", a["id"], main[i + 1]["id"], "rl", label=a.get("next_label", ""),
-                 color=NAVY, lx=-10)
-
-    branches = spec.get("branches", [])
-    if branches:
-        cv.text("side", 40, mid + 150, "WHEN SOMETHING\nGOES WRONG", 16, RED)
-    depth_at: dict[int, int] = {}
-    low = mid + 170
-    for n, br in enumerate(sorted(branches, key=lambda b: index[b["from"]])):
-        s = index[br["from"]]
-        depth = depth_at.get(s - 1, 0) + 1 if depth_at.get(s - 1, 0) < 3 else 1
-        depth_at[s] = depth
-        t = br.get("type", "step")
-        w, h = sizes[t]
-        src = cv.by_id[br["from"]]
-        bx, by = src["x"] + src["width"] / 2 - w / 2, low + (depth - 1) * 150
-        kind = {"fail": "error", "note": "note"}.get(t, br.get("kind", "system"))
-        form = "ellipse" if t == "fail" else "rectangle"
-        bid = br.get("id", f"br{n}")
-        cv.shape(bid, bx, by, w, h, br["text"], kind, form, fs=13,
-                 dashed=br.get("dashed", False))
-        color = RED if t in ("fail", "note") else "#b45309"
-        cv.arrow(f"{bid}_in", br["from"], bid, "bt", label=br.get("label", ""), lx=8,
-                 ly=-8 if depth == 1 else -30, color=color, dashed=br.get("dashed", False))
-        if "to" in br:
-            tgt = cv.by_id[br["to"]]
-            ti, cy = index[br["to"]], by + h / 2
-            if ti == s + 1:  # rejoin the main line just before the next node
-                gx = tgt["x"] - 25
-                cv.arrow(f"{bid}_out", bid, br["to"], "rl", via=[(gx, cy), (gx, mid)],
-                         color=NAVY, dashed=t == "fail")
-            elif ti > s:  # skip ahead: come up under the target
-                tx = tgt["x"] + tgt["width"] / 2
-                cv.arrow(f"{bid}_out", bid, br["to"], "rb", via=[(tx, cy)], color=NAVY,
-                         dashed=t == "fail")
-            else:  # loop back
-                tx = tgt["x"] + tgt["width"] / 2
-                cv.arrow(f"{bid}_out", bid, br["to"], "lb", via=[(tx, cy)], color=NAVY,
-                         dashed=t == "fail")
-
-    for n, ev in enumerate(spec.get("interrupts", [])):
-        tgt = cv.by_id[ev["into"]]
-        ex = tgt["x"] + tgt["width"] / 2 - 125
-        cv.shape(f"ev{n}", ex, mid - 240, 250, 70, ev["text"], "error", "ellipse", fs=13,
-                 dashed=True)
-        if ev.get("note"):
-            cv.text(f"ev{n}_n", ex + 270, mid - 232, ev["note"], 13, BODY)
-        cv.arrow(f"ev{n}_a", f"ev{n}", ev["into"], "bt", label=ev.get("label", ""), lx=8,
-                 ly=-10, color=RED, dashed=True)
-
-    for n, p in enumerate(spec.get("problems", [])):
-        node = cv.by_id[p["on"]]
-        cv.flag(f"pf{n}", node["x"] + node["width"] - 10, node["y"] - 20, p["n"])
-
-    deepest = max(depth_at.values(), default=0)
-    kinds = ["person", "decision", "system", "ai", "support", "end", "error"]
-    used = {e.get("backgroundColor") for e in cv.els}
-    kinds = [k for k in kinds if KINDS[k][0] in used]
-    cv.key(200, low + max(deepest, 1) * 150 + 40, kinds,
-           "Dashed = rare or side path. Red circles with numbers = known problems.")
-    return cv
-
-
-# ---- map ---------------------------------------------------------------------------------
+# ---- the plan as pictures ------------------------------------------------------------------
 # Tested over two days of planning a real two-person system with its non-technical owner.
-# What worked: one drawing, top to bottom; every part placed by who owns it; the simple
+# What worked: one picture, top to bottom; every part placed by who owns it; the simple
 # version first, the full system under it; built / next build / later visibly different;
-# guesses yellow with the number of the question that settles them. See map-method.md.
+# guesses yellow with the number of the question that settles them. See SKILL.md.
 
 WHO_PALETTE = [("#dbeafe", "#2563eb"), ("#ddd6fe", "#6d28d9"), ("#dcfce7", "#16a34a"),
                ("#fed7aa", "#c2410c"), ("#e2e8f0", "#475569"), ("#fce7f3", "#be185d")]
@@ -347,7 +149,6 @@ def build_map(spec: dict) -> Canvas:
     for n, (key, w) in enumerate(spec.get("who", {}).items()):
         fill, stroke = WHO_PALETTE[n % len(WHO_PALETTE)]
         who[key] = (w.get("fill", fill), w.get("stroke", stroke), w.get("label", key))
-    guesses: dict[int, list[str]] = {}
 
     def look(status: str, w: str) -> tuple[str, str, str, str]:
         """fill, stroke, words, stroke style for a box of this status, done by w."""
@@ -445,7 +246,6 @@ def build_map(spec: dict) -> Canvas:
                         color, style, align="left" if full and steps else "center",
                         valign="top" if full and steps else "middle")
                 if status == "guess":
-                    guesses.setdefault(p["guess"], []).append(p["name"])
                     badge(f"{pid}_q", pid, p["guess"])
                 sy = top + 40 + head
                 prev = None
@@ -454,7 +254,6 @@ def build_map(spec: dict) -> Canvas:
                     sf, ss, sc, sst = look(st.get("status", status), st.get("who", p["who"]))
                     box(sid, x + 24, sy, pw - 48, sh, txt, 16, sf, ss, sc, sst)
                     if st.get("status") == "guess":
-                        guesses.setdefault(st["guess"], []).append(st["text"])
                         badge(f"{sid}_q", sid, st["guess"])
                     if prev:
                         cv.arrow(f"{sid}_in", prev, sid, "bt", color=BODY)
@@ -554,12 +353,6 @@ def build_map(spec: dict) -> Canvas:
     y += 20
     level("f_", spec.get("full_heading", "The full system, step by step"), y, True, W)
 
-    left = sorted(guesses)
-    if left and left != list(range(1, len(left) + 1)):
-        print(f"warning: guess numbers should run 1..{len(left)}, got {left}")
-    for n in left:
-        print(f"guess {n}: {' / '.join(dict.fromkeys(guesses[n]))}")
-    print(f"{len(left)} question(s) left")
     for problem in check(cv.els):
         print("layout:", problem)
     return cv
@@ -609,16 +402,114 @@ def check(els: list[dict]) -> list[str]:
     return out
 
 
+def colours(spec: dict) -> dict[str, tuple[str, str, str]]:
+    """who key -> (fill, stroke, label)."""
+    out = {}
+    for n, (key, w) in enumerate(spec.get("who", {}).items()):
+        fill, stroke = WHO_PALETTE[n % len(WHO_PALETTE)]
+        out[key] = (w.get("fill", fill), w.get("stroke", stroke), w.get("label", key))
+    return out
+
+
+def guesses(spec: dict) -> dict[int, list[str]]:
+    """Question number -> the boxes it settles."""
+    out: dict[int, list[str]] = {}
+    for band in spec["bands"]:
+        for p in band["parts"]:
+            if p.get("status") == "guess":
+                out.setdefault(p["guess"], []).append(p["name"])
+            for st in p.get("steps", []):
+                if st.get("status") == "guess":
+                    out.setdefault(st["guess"], []).append(st["text"])
+    return dict(sorted(out.items()))
+
+
+CIRCLED = "①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳"
+
+
+def mermaid(spec: dict) -> str:
+    """The simple version as a Mermaid flowchart: one row per band, top to bottom.
+
+    Only the simple version: with every step inside, Mermaid's automatic layout loses the
+    row order and crosses arrows, so the full system is the hand-placed drawing."""
+    who = colours(spec)
+
+    def label(text: str, item: dict) -> str:
+        if item.get("status") == "guess":
+            n = item["guess"]
+            text = f"{CIRCLED[n - 1] if n <= len(CIRCLED) else n} {text}"
+        return '"' + text.replace('"', "#quot;").replace("\n", "<br/>") + '"'
+
+    def style(item: dict) -> str:
+        status = item.get("status", "built")
+        fill, stroke, _ = who[item["who"]]
+        color = INK
+        if status == "later":
+            fill, stroke, color = LATER[0], LATER[1], LATER[1]
+        elif status == "guess":
+            fill, stroke = GUESS
+        dash = {"next": ",stroke-dasharray:6 4", "later": ",stroke-dasharray:2 3"}.get(status, "")
+        return f"fill:{fill},stroke:{stroke},color:{color},stroke-width:2px{dash}"
+
+    lines, styles = ["flowchart TD"], []
+    for bi, band in enumerate(spec["bands"]):
+        lines.append(f'  subgraph band{bi}["{band["name"]}"]')
+        for p in band["parts"]:
+            name = p["name"] + (f"<br/>{p['sub']}" if p.get("sub") else "")
+            lines.append(f"    {p['id']}[{label(name, p)}]")
+            styles.append(f"  style {p['id']} {style(p)}")
+        lines.append("  end")
+        styles.append(f"  style band{bi} fill:#f8fafc,stroke:#e2e8f0")
+    hops = 0  # Mermaid numbers every link in the order it is written
+    if len(spec["bands"]) > 1:  # keeps the rows in order, top to bottom
+        lines.append("  " + " ~~~ ".join(f"band{bi}" for bi in range(len(spec["bands"]))))
+        hops = len(spec["bands"]) - 1
+    for ln in spec.get("links", []):
+        status = ln.get("status", "built")
+        text = f'|"{ln["label"]}"|' if ln.get("label") else ""
+        lines.append(f"  {ln['from']} {'-->' if status == 'built' else '-.->'}{text} {ln['to']}")
+        if status == "later":
+            styles.append(f"  linkStyle {hops} stroke:{LATER[1]},color:{LATER[1]}")
+        hops += 1
+    return "\n".join(lines + styles)
+
+
+def markdown(spec: dict, drawing: str) -> str:
+    """The simple version for a chat or a board, the questions, and where the full system is."""
+    who = colours(spec)
+    parts = [f"# {spec['title']}", ""]
+    parts += ["Colour = who does it: " + ", ".join(v[2] for v in who.values()) + ". "
+              "Solid: built and working. Dashed: the next build. Grey: later, not in this build. "
+              "Yellow with a number: a guess; the number is the question that settles it.", ""]
+    parts += [f"## {spec.get('simple_heading', 'The simple version')}", "", "```mermaid",
+              mermaid(spec), "```", ""]
+    q = spec.get("questions")
+    if q:
+        parts += [f"## {q['title']}", ""] + [f"{n}. {item}" for n, item in
+                                               enumerate(q["items"], 1)] + [""]
+    parts += [f"## {spec.get('full_heading', 'The full system, step by step')}", "",
+              f"In the drawing `{drawing}`, under the simple version.", ""]
+    return "\n".join(parts)
+
+
 def main() -> None:
-    if len(sys.argv) < 3 or sys.argv[1] not in ("map", "blueprint", "flow"):
+    if len(sys.argv) != 2:
         sys.exit(__doc__)
-    spec_path = Path(sys.argv[2])
-    out = Path(sys.argv[3]) if len(sys.argv) > 3 else spec_path.with_suffix(".excalidraw")
+    spec_path = Path(sys.argv[1])
     spec = json.loads(spec_path.read_text())
-    cv = {"map": build_map, "blueprint": build_blueprint, "flow": build_flow}[sys.argv[1]](spec)
+    found = guesses(spec)
+    if found and list(found) != list(range(1, len(found) + 1)):
+        print(f"warning: guess numbers should run 1..{len(found)}, got {list(found)}")
+    for n, boxes in found.items():
+        print(f"guess {n}: {' / '.join(dict.fromkeys(boxes))}")
+    print(f"{len(found)} question(s) left")
+    out = spec_path.with_suffix(".excalidraw")
+    cv = build_map(spec)
     out.write_text(json.dumps(cv.doc(), indent=1))
     print(f"wrote {out} ({len(cv.els)} elements)")
-
+    md = spec_path.with_suffix(".md")
+    md.write_text(markdown(spec, out.name))
+    print(f"wrote {md}")
 
 if __name__ == "__main__":
     main()
