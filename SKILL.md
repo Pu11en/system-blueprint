@@ -10,6 +10,13 @@ points at what is wrong, and understands more each round. This skill is the proc
 worked when a non-technical owner planned a real two-person system end to end: little at a
 time, each level more detailed as they understand, until nothing is missing.
 
+**The core idea: the levels follow understanding.** At the start nobody has all the
+answers, and that is expected. Draw what is known now; mark what is not known as numbered
+questions. Each answer fills in the picture, and the next level is drawn only once the
+current one is understood. So a level is not a fixed amount of detail: it is how far the
+owner and the agent understand the system so far. By the last level the whole flow is
+clear from beginning to end, with no holes left.
+
 **The picture is the plan.** Chat carries one question at a time. Notes are for the agent
 (`<name>-plan.json` plus a short notes file of decisions and open questions); the owner
 should never need to read them. The tool that draws the picture matters less than the

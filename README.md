@@ -13,6 +13,10 @@ pictures instead of documents**, level by level, until there are no holes.
 5. **Find the holes**: rounds over every step, failure, hand-off and store until a round
    finds nothing new. Then a build plan straight from the picture.
 
+The levels follow understanding: nobody has all the answers at the start, so each level is
+drawn from the answers so far, and its open questions are what the next level settles. By
+the last level the whole flow is clear from beginning to end.
+
 It is the process that worked when a non-technical owner planned a real two-person system
 end to end, written down so the next system goes faster.
 
